@@ -50,7 +50,8 @@ public final class GatewayApp {
 
         System.out.println("[gateway] HTTP " + httpPort + " | TCP " + tcpPort + " | HEARTBEAT " + heartbeatPort);
         System.out.println("[gateway] curl http://127.0.0.1:" + httpPort + "/time/br");
-        System.out.println("[gateway] suba instâncias: InstanceApp br br-1 9101");
+        System.out.println("[gateway] ops (outro terminal): InstanceManagerServer 8081");
+        System.out.println("[gateway]   POST/DELETE/GET http://127.0.0.1:8081/instances");
         Thread.currentThread().join();
     }
 

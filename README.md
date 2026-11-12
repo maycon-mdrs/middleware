@@ -2,6 +2,8 @@
 
 Plataforma de middleware (2º trabalho DIM0614) + app de horário (gateway + instâncias BR/PT).
 
+**Não entendeu o projeto?** Leia primeiro: [docs/como-funciona.md](docs/como-funciona.md) (explicação + Mermaid do zero).
+
 ## Módulos
 
 | Módulo | Papel |
@@ -45,20 +47,35 @@ curl http://127.0.0.1:8080/time/br
 
 ## Rodar (arquitetura TP1 completa)
 
+Na **raiz** do repo `middleware/` (depois de `mvn clean install`):
+
 ```powershell
 # 1) gateway
 java -cp $cp br.imd.ufrn.app.GatewayApp
 
-# 2) instâncias (outros terminais)
-java -cp $cp br.imd.ufrn.app.instance.InstanceApp br br-1 9101
-java -cp $cp br.imd.ufrn.app.instance.InstanceApp br br-2 9102
-java -cp $cp br.imd.ufrn.app.instance.InstanceApp pt pt-1 9201
-java -cp $cp br.imd.ufrn.app.instance.InstanceApp pt pt-2 9202
+# 2) ops — subir/derrubar instâncias (porta 8081)
+java -cp $cp br.imd.ufrn.app.ops.InstanceManagerServer
 ```
 
-Portas: HTTP `8080`, TCP `9091`, heartbeat `9000`, instâncias `91xx/92xx`.
+Com o ops no ar:
 
-Úteis: `GET /registry`, `GET /lookup`.
+```powershell
+# subir
+curl -X POST "http://127.0.0.1:8081/instances" -H "Content-Type: application/json" -d "{\"type\":\"br\",\"id\":\"br-1\",\"port\":9101}"
+curl -X POST "http://127.0.0.1:8081/instances" -H "Content-Type: application/json" -d "{\"type\":\"br\",\"id\":\"br-2\",\"port\":9102}"
+curl -X POST "http://127.0.0.1:8081/instances" -H "Content-Type: application/json" -d "{\"type\":\"pt\",\"id\":\"pt-1\",\"port\":9201}"
+curl -X POST "http://127.0.0.1:8081/instances" -H "Content-Type: application/json" -d "{\"type\":\"pt\",\"id\":\"pt-2\",\"port\":9202}"
+
+# listar
+curl "http://127.0.0.1:8081/instances"
+
+# derrubar (ex.: durante o JMeter)
+curl -X DELETE "http://127.0.0.1:8081/instances" -H "Content-Type: application/json" -d "{\"id\":\"br-1\"}"
+```
+
+Portas: HTTP `8080`, TCP `9091`, heartbeat `9000`, ops `8081`, instâncias `91xx/92xx`.
+
+Úteis no gateway: `GET /registry`, `GET /lookup`.
 
 ## JMeter
 

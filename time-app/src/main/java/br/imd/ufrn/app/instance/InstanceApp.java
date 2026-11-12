@@ -5,6 +5,10 @@ import br.imd.ufrn.middleware.Middleware;
 import br.imd.ufrn.middleware.extension.interceptor.LoggingInterceptor;
 import br.imd.ufrn.middleware.extension.protocol.http.HttpProtocolPlugin;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 /**
  * Processo de instância BR/PT usando o middleware.
  *
@@ -26,6 +30,8 @@ public final class InstanceApp {
         String gatewayHost = args.length > 3 ? args[3] : "127.0.0.1";
         String advertiseHost = args.length > 4 ? args[4] : "127.0.0.1";
 
+        writePidFile(id);
+
         ZoneTimeService service = new ZoneTimeService(zone);
 
         Middleware mw = new Middleware();
@@ -40,5 +46,16 @@ public final class InstanceApp {
 
         System.out.println("[instance] " + id + " zone=" + zone + " http=" + port);
         Thread.currentThread().join();
+    }
+
+    private static void writePidFile(String instanceId) {
+        try {
+            Path dir = Path.of("logs");
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve(instanceId + ".pid"),
+                    String.valueOf(ProcessHandle.current().pid()));
+        } catch (IOException e) {
+            System.err.println("[instance] falha ao gravar pid: " + e.getMessage());
+        }
     }
 }

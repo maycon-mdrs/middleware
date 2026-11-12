@@ -17,12 +17,42 @@ public class JsonMarshaller implements Marshaller {
         if (value instanceof Number || value instanceof Boolean) {
             return String.valueOf(value);
         }
-        return JSONObject.wrap(value).toString();
+        try {
+            return JSONObject.wrap(value).toString();
+        } catch (Exception e) {
+            throw new InfrastructureException("Falha ao serializar " + value.getClass().getName(), e);
+        }
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <T> T unmarshal(String payload, Class<T> type) throws InfrastructureException {
-        // TODO: deserializar JSON para o tipo pedido
-        throw new UnsupportedOperationException("unmarshal ainda não implementado para " + type.getName());
+        if (payload == null || payload.isBlank() || "null".equals(payload)) {
+            return null;
+        }
+        try {
+            if (type == String.class) {
+                if (payload.startsWith("\"") && payload.endsWith("\"")) {
+                    return (T) new JSONObject("{\"v\":" + payload + "}").getString("v");
+                }
+                return (T) payload;
+            }
+            if (type == Integer.class || type == int.class) {
+                return (T) Integer.valueOf(payload.trim());
+            }
+            if (type == Long.class || type == long.class) {
+                return (T) Long.valueOf(payload.trim());
+            }
+            if (type == Boolean.class || type == boolean.class) {
+                return (T) Boolean.valueOf(payload.trim());
+            }
+            if (type == Double.class || type == double.class) {
+                return (T) Double.valueOf(payload.trim());
+            }
+            JSONObject json = new JSONObject(payload);
+            return (T) json.toMap();
+        } catch (Exception e) {
+            throw new InfrastructureException("Falha ao deserializar para " + type.getName(), e);
+        }
     }
 }

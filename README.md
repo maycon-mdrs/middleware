@@ -1,93 +1,100 @@
 # middleware
 
-Plataforma de middleware (2º trabalho) + app de horário.
-
-Pastas nomeadas pelo padrão de Remoting — abrir o Explorer já mostra onde cada peça mora.
+Plataforma de middleware (2º trabalho DIM0614) + app de horário (gateway + instâncias BR/PT).
 
 ## Módulos
 
 | Módulo | Papel |
 |--------|--------|
-| `middleware-core` | JAR da plataforma |
-| `time-app` | App que importa o JAR |
+| `middleware-core` | JAR da plataforma (padrões de Remoting) |
+| `time-app` | Gateway + instâncias que usam o JAR |
 
 ## Glossário
 
-| Nome | Significado simples |
-|------|---------------------|
+| Nome | Significado |
+|------|-------------|
 | `Invoker` | Chama o método Java com reflexão |
 | `Marshaller` | JSON ↔ objeto |
 | `ServerRequestHandler` | Recebe o pedido e encaminha |
 | `RemoteObjectRegistry` | Mapa rota → método |
-| `ProtocolPlugin` | HTTP ou TCP na porta |
-| `InvocationInterceptor` | Código antes/depois da invocação |
-| `LifecyclePolicy` | Se reusa a instância ou cria outra |
-| `@RemoteComponent` | Classe = objeto remoto |
-| `@RemoteMethod` | Método = endpoint remoto |
-| `@PathParam` / `@QueryParam` / `@BodyParam` / `@HeaderParam` | De onde vem cada argumento |
+| `LifecycleManager` | Static, Per-Request, Pooling, … |
+| `Lookup` / `ObjectId` / AOR | Identification |
+| `ProtocolPlugin` | HTTP ou TCP |
+| `LoggingInterceptor` | Log + latência |
+| `@RemoteComponent` / `@RemoteMethod` | Modelo de componentes |
 
-## Árvore
-
-```
-middleware/
-  Middleware.java
-  broker/
-    annotations/   @RemoteComponent, @RemoteMethod, @PathParam, ...
-    enums/         HttpMethod, LifecyclePolicy
-    entities/      Request, Response
-    exceptions/    RemotingException, ...
-    handler/       ServerRequestHandler
-    invoker/       Invoker
-    marshaller/    Marshaller, JsonMarshaller
-    registry/      RemoteObjectRegistry
-  extension/
-    interceptor/   InvocationInterceptor, InvocationContext
-    protocol/      ProtocolPlugin
-    protocol/http/ HttpProtocolPlugin
-    protocol/tcp/  TcpProtocolPlugin
-```
-
-## Padrão → pasta
-
-| Padrão | Pasta |
-|--------|--------|
-| Modelo de componentes | `broker/annotations`, `broker/enums` |
-| Broker (bootstrap) | `Middleware.java` |
-| Server Request Handler | `broker/handler` |
-| Invoker | `broker/invoker` |
-| Marshaller | `broker/marshaller` |
-| Remote Object | `broker/registry` |
-| Remoting Error | `broker/exceptions` |
-| Invocation Interceptor / Context | `extension/interceptor` |
-| Protocol Plug-In | `extension/protocol` (+ `http`, `tcp`) |
-
-## Exemplo (app)
-
-```java
-@RemoteComponent(name = "time", lifecycle = STATIC)
-public class TimeService {
-  @RemoteMethod(path = "/time/{zone}", httpMethod = GET)
-  public String now(@PathParam("zone") String zone) { ... }
-}
-```
-
-## Compilar e rodar
+## Compilar
 
 ```powershell
 mvn clean install
-java -cp "time-app\target\classes;middleware-core\target\classes;%USERPROFILE%\.m2\repository\org\json\json\20250517\json-20250517.jar" br.imd.ufrn.app.GatewayApp
 ```
 
-Portas padrão: HTTP `8080`, TCP `9091` (esqueleto — ainda não aceitam conexão).
+Classpath típico (Windows):
+
+```powershell
+$cp = "time-app\target\classes;middleware-core\target\classes;$env:USERPROFILE\.m2\repository\org\json\json\20250517\json-20250517.jar"
+```
+
+## Rodar (mínimo — só gateway com fallback local)
+
+```powershell
+java -cp $cp br.imd.ufrn.app.GatewayApp
+curl http://127.0.0.1:8080/time/br
+# TCP: envie a linha "TIME br" na porta 9091
+```
+
+## Rodar (arquitetura TP1 completa)
+
+```powershell
+# 1) gateway
+java -cp $cp br.imd.ufrn.app.GatewayApp
+
+# 2) instâncias (outros terminais)
+java -cp $cp br.imd.ufrn.app.instance.InstanceApp br br-1 9101
+java -cp $cp br.imd.ufrn.app.instance.InstanceApp br br-2 9102
+java -cp $cp br.imd.ufrn.app.instance.InstanceApp pt pt-1 9201
+java -cp $cp br.imd.ufrn.app.instance.InstanceApp pt pt-2 9202
+```
+
+Portas: HTTP `8080`, TCP `9091`, heartbeat `9000`, instâncias `91xx/92xx`.
+
+Úteis: `GET /registry`, `GET /lookup`.
+
+## JMeter
+
+```powershell
+jmeter -n -t jmeter\carga-http.jmx "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5"
+jmeter -n -t jmeter\carga-tcp.jmx  "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5"
+```
+
+AWS / knee / usable: ver [docs/aws-e-capacidade.md](docs/aws-e-capacidade.md).
 
 ## Fluxo
 
 ```
-Cliente → ProtocolPlugin → ServerRequestHandler
-        → Interceptor(s) → Invoker → TimeService
-        → Marshaller → Response
+Cliente → ProtocolPlugin (HTTP|TCP)
+       → ServerRequestHandler → Interceptor
+       → Invoker + Lifecycle → método @RemoteMethod
+       → Marshaller → Response
 ```
 
-## Próxima fase
+Gateway ainda: registry/heartbeat/LB → forward HTTP à instância.
 
-Core síncrono HTTP: registrar `@RemoteMethod`, Invoker real, `HttpProtocolPlugin` aceitando conexões.
+## Critérios × código
+
+| Critério | Onde |
+|----------|------|
+| Modelo de componentes | `@RemoteComponent`, `@RemoteMethod`, `@PathParam` |
+| Basic Remoting | `handler`, `invoker`, `marshaller`, `exceptions` |
+| Extension | `protocol/http`, `protocol/tcp`, `LoggingInterceptor` |
+| Lifecycle | `broker/lifecycle/LifecycleManager` |
+| Identification | `broker/identification` + `/lookup` |
+| Asynchrony | adiado |
+
+## Árvore (core)
+
+```
+Middleware.java
+broker/annotations|enums|entities|exceptions|handler|invoker|marshaller|registry|lifecycle|identification
+extension/interceptor|protocol/http|protocol/tcp
+```

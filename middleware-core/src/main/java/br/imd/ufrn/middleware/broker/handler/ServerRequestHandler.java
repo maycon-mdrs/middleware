@@ -2,7 +2,8 @@ package br.imd.ufrn.middleware.broker.handler;
 
 import br.imd.ufrn.middleware.broker.entities.Request;
 import br.imd.ufrn.middleware.broker.entities.Response;
-import br.imd.ufrn.middleware.broker.exceptions.RemotingException;
+import br.imd.ufrn.middleware.broker.exceptions.ApplicationException;
+import br.imd.ufrn.middleware.broker.exceptions.InfrastructureException;
 import br.imd.ufrn.middleware.broker.invoker.Invoker;
 import br.imd.ufrn.middleware.broker.marshaller.Marshaller;
 import br.imd.ufrn.middleware.extension.interceptor.InvocationContext;
@@ -27,26 +28,33 @@ public class ServerRequestHandler {
         interceptors.add(interceptor);
     }
 
-    public Response handle(Request request) throws RemotingException {
+    public Response handle(Request request) {
         InvocationContext context = new InvocationContext();
+        try {
+            for (InvocationInterceptor interceptor : interceptors) {
+                interceptor.before(request, context);
+            }
 
-        // 1. before
-        for (InvocationInterceptor interceptor : interceptors) {
-            interceptor.before(request, context);
+            Object result = invoker.invoke(request);
+            String body = marshaller.marshal(result);
+            Response response = Response.ok(body);
+
+            for (InvocationInterceptor interceptor : interceptors) {
+                interceptor.after(request, response, context);
+            }
+            return response;
+        } catch (ApplicationException e) {
+            return Response.error(400, jsonError(e.getMessage()));
+        } catch (InfrastructureException e) {
+            int status = e.getMessage() != null && e.getMessage().startsWith("Rota não encontrada") ? 404 : 500;
+            return Response.error(status, jsonError(e.getMessage()));
+        } catch (Exception e) {
+            return Response.error(500, jsonError(e.getMessage()));
         }
+    }
 
-        // 2. invoca o objeto remoto
-        Object result = invoker.invoke(request);
-
-        // 3. serializa a resposta
-        String body = marshaller.marshal(result);
-        Response response = Response.ok(body);
-
-        // 4. after
-        for (InvocationInterceptor interceptor : interceptors) {
-            interceptor.after(request, response, context);
-        }
-
-        return response;
+    private static String jsonError(String message) {
+        String safe = message == null ? "erro" : message.replace("\"", "'");
+        return "{\"error\":\"" + safe + "\"}";
     }
 }

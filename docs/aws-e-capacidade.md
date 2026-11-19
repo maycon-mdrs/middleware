@@ -1,24 +1,10 @@
 # AWS e capacidade (knee / usable)
 
-## Deploy sugerido (EC2)
+## Deploy
 
-1. Suba uma EC2 (Amazon Linux / Ubuntu) com JDK 21 e Maven.
-2. Clone o repositório e rode `mvn clean install`.
-3. Abra no security group as portas `8080` (HTTP), `9091` (TCP), `9000` (heartbeat) e as portas das instâncias (`9101`, `9102`, `9201`, `9202`).
-4. No host:
+Passo a passo completo (SSH, Java, clone, `nohup`, kill, JMeter): **[ambiente-aws.md](ambiente-aws.md)**.
 
-```bash
-# terminal 1 — gateway
-java -cp "time-app/target/classes:middleware-core/target/classes:$HOME/.m2/repository/org/json/json/20250517/json-20250517.jar" \
-  br.imd.ufrn.app.GatewayApp
-
-# terminais 2–5 — instâncias
-java -cp "time-app/target/classes:middleware-core/target/classes:$HOME/.m2/repository/org/json/json/20250517/json-20250517.jar" \
-  br.imd.ufrn.app.instance.InstanceApp br br-1 9101
-# ... br-2 9102, pt-1 9201, pt-2 9202
-```
-
-5. No JMeter (máquina local ou outra EC2), aponte `-JgatewayHost=<IP_PUBLICO>`.
+Resumo: **1 EC2** Amazon Linux 2023 (mesma ideia do TP1), gateway + instâncias no host, JMeter no PC com `-JgatewayHost=<IP_PUBLICO>`.
 
 ## Knee capacity e Usable capacity
 
@@ -30,5 +16,7 @@ Repita a carga HTTP (`jmeter/carga-http.jmx`) aumentando `users` (ex.: 5, 8, 10,
 
 - **Knee capacity:** ponto em que o throughput para de crescer linearmente (ou a latência sobe rápido) — o “joelho” da curva.
 - **Usable capacity:** tipicamente ~70–80% do knee (margem segura de operação), como no TP1.
+
+Na demo de apresentação, rode abaixo do knee com **0% erro**; depois faça kill parcial/total.
 
 Registre gráficos (throughput × users, latência × users) em `docs/figuras/` na apresentação.

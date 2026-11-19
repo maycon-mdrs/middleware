@@ -48,6 +48,10 @@ buildNumber.properties
 .DS_Store
 Thumbs.db
 
+# AWS / SSH keys (nunca versionar)
+*.pem
+my-key.pem
+
 # Runtime / load-test artifacts
 logs/
 jmeter/resultados/**

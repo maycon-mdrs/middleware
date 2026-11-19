@@ -81,12 +81,23 @@ Portas: HTTP `8080`, TCP `9091`, heartbeat `9000`, ops `8081`, instâncias `91xx
 
 ## JMeter
 
+Mesmo padrão do TP1: [jmeter/README.md](jmeter/README.md) · tutorial GUI: [jmeter/tutorial-gui.md](jmeter/tutorial-gui.md).
+
 ```powershell
-jmeter -n -t jmeter\carga-http.jmx "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5"
-jmeter -n -t jmeter\carga-tcp.jmx  "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5"
+cd jmeter
+jmeter -n -t carga-http.jmx "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5" "-Jduration=60"
+jmeter -n -t carga-tcp.jmx  "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5" "-Jduration=60"
+jmeter -n -t carga-completa.jmx "-JgatewayHost=127.0.0.1" "-Jusers=8" "-Jramp=5" "-Jduration=30"
 ```
 
-AWS / knee / usable: ver [docs/aws-e-capacidade.md](docs/aws-e-capacidade.md).
+## Postman
+
+Collection para ligar/desligar instâncias e checar o gateway: [postman/](postman/)  
+Importar: `postman/middleware.postman_collection.json`.
+
+AWS (EC2, igual espírito do TP1): [docs/ambiente-aws.md](docs/ambiente-aws.md).  
+Boot automático na EC2: `bash scripts/install-systemd.sh` (ver docs).  
+Knee / usable: [docs/aws-e-capacidade.md](docs/aws-e-capacidade.md).
 
 ## Fluxo
 

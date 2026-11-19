@@ -22,7 +22,8 @@ public final class GatewayApp {
         int tcpPort = args.length > 1 ? Integer.parseInt(args[1]) : 9091;
         int heartbeatPort = args.length > 2 ? Integer.parseInt(args[2]) : 9000;
 
-        InstanceRegistry registry = new InstanceRegistry(6_000);
+        // 20s: no t3.micro sob JMeter, 6s (TP1) tirava réplicas vivas e gerava Error% espúrio.
+        InstanceRegistry registry = new InstanceRegistry(20_000);
         Thread cleaner = new Thread(() -> {
             while (!Thread.currentThread().isInterrupted()) {
                 try {

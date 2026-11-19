@@ -47,3 +47,8 @@ buildNumber.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime / load-test artifacts
+logs/
+jmeter/resultados/**
+!jmeter/resultados/.gitkeep

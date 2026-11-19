@@ -1,6 +1,5 @@
 package br.imd.ufrn.app.gateway;
 
-import br.imd.ufrn.app.TimeService;
 import br.imd.ufrn.middleware.broker.annotations.PathParam;
 import br.imd.ufrn.middleware.broker.annotations.RemoteComponent;
 import br.imd.ufrn.middleware.broker.annotations.RemoteMethod;
@@ -20,14 +19,13 @@ import java.util.stream.Collectors;
 
 /**
  * Facade do gateway: escolhe instância saudável (LB) e encaminha HTTP ao backend.
- * Sem instâncias, usa {@link TimeService} local (fallback).
+ * Sem instâncias saudáveis, falha (HTTP 400 via Invoker) para a taxa de erro subir no JMeter.
  */
 @RemoteComponent(name = "gateway-time", lifecycle = LifecyclePolicy.STATIC)
 public class GatewayTimeService {
 
     private final InstanceRegistry registry;
     private final Lookup lookup;
-    private final TimeService localFallback = new TimeService();
 
     public GatewayTimeService(InstanceRegistry registry, Lookup lookup) {
         this.registry = registry;
@@ -43,7 +41,7 @@ public class GatewayTimeService {
 
         Optional<InstanceInfo> chosen = registry.nextHealthy(z);
         if (chosen.isEmpty()) {
-            return localFallback.now(z);
+            throw new IllegalArgumentException("Nenhuma instância saudável para zona: " + z);
         }
 
         InstanceInfo instance = chosen.get();

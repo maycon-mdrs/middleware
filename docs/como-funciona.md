@@ -114,14 +114,12 @@ flowchart TB
     IR[InstanceRegistry + Heartbeat]
     IA[InstanceApp]
     ZTS[ZoneTimeService]
-    TS[TimeService - fallback local]
   end
 
   GA --> Mid
   GTS --> Mid
   IA --> Mid
   ZTS --> Mid
-  TS --> Mid
 ```
 
 **Regra de ouro**
@@ -155,7 +153,7 @@ flowchart LR
   PT2 -.->|REGISTER HEARTBEAT| GW
 ```
 
-Sem instâncias, o gateway ainda responde usando `TimeService` local (fallback). Com instâncias, faz load balance e encaminha.
+Sem instâncias saudáveis, o gateway responde com **erro (HTTP 400)** — no JMeter a taxa de erro tende a ~100%. Com instâncias, faz load balance e encaminha.
 
 ---
 
@@ -173,7 +171,7 @@ sequenceDiagram
   participant LIFE as LifecycleManager
   participant REG as RemoteObjectRegistry
   participant APP as GatewayTimeService
-  participant BE as InstanceApp ou TimeService local
+  participant BE as InstanceApp
 
   C->>HTTP: GET /time/br
   HTTP->>HTTP: parseia HTTP/1.0 vira Request
@@ -187,15 +185,19 @@ sequenceDiagram
   alt tem instancia viva
     APP->>BE: HTTP GET host:porta/time
     BE-->>APP: horario
+    APP-->>INV: String horario
+    INV-->>SRH: resultado
+    SRH->>SRH: Marshaller vira JSON
+    SRH->>INT: after
+    SRH-->>HTTP: Response 200
+    HTTP-->>C: corpo JSON
   else sem instancia
-    APP->>APP: TimeService local
+    APP-->>INV: IllegalArgumentException
+    INV-->>SRH: ApplicationException
+    SRH->>INT: after
+    SRH-->>HTTP: Response 400
+    HTTP-->>C: JSON de erro
   end
-  APP-->>INV: String horario
-  INV-->>SRH: resultado
-  SRH->>SRH: Marshaller vira JSON
-  SRH->>INT: after
-  SRH-->>HTTP: Response 200
-  HTTP-->>C: corpo JSON
 ```
 
 ### Em português, passo a passo
@@ -207,7 +209,7 @@ sequenceDiagram
    `GET /time/{zone}` → `GatewayTimeService.now`.
 5. **`Invoker`** resolve `@PathParam("zone")` = `"br"` e faz `method.invoke`.
 6. **`GatewayTimeService`** (app) escolhe uma instância BR no registry (LB).
-7. Encaminha para a instância **ou** usa fallback local.
+7. Encaminha para a instância; se não houver saudável, lança erro (HTTP 400).
 8. Volta: Marshaller → Response → bytes HTTP → cliente.
 
 TCP é a mesma ideia: linha `TIME br` vira um `Request` GET `/time/br` e segue o mesmo Invoker.
@@ -239,7 +241,7 @@ No `mw.register(obj)`, o middleware **varre** esses métodos e monta a tabela de
 
 ```mermaid
 flowchart TB
-  MC[Modelo de componentes 2.0] --> Ann["annotations + TimeService/GatewayTimeService"]
+  MC[Modelo de componentes 2.0] --> Ann["annotations + ZoneTimeService/GatewayTimeService"]
   BR[Basic Remoting 1.0] --> Core["handler + invoker + marshaller + exceptions"]
   EX[Extension 3.0] --> Ext["protocol/http + protocol/tcp + LoggingInterceptor"]
   LC[Lifecycle 1.5] --> Life["LifecycleManager"]
@@ -257,6 +259,7 @@ flowchart TB
 mvn clean install
 # classpath como no README
 java ... br.imd.ufrn.app.GatewayApp
+java ... br.imd.ufrn.app.instance.InstanceApp br br-1 9101
 curl http://127.0.0.1:8080/time/br
 # JMeter carga-http.jmx
 ```
@@ -267,7 +270,8 @@ curl http://127.0.0.1:8080/time/br
 2. Terminais: `InstanceApp br br-1 9101`, `br-2`, `pt-1`, `pt-2`
 3. JMeter batendo no gateway
 4. Se pedirem “mata uma instância”: **Ctrl+C** no terminal dela  
-   → heartbeat para → gateway remove → LB usa as outras
+   → heartbeat para → gateway remove → LB usa as outras (erro sobe, sem tender a 100%)
+5. Se pedirem “mata todas”: derruba as restantes → erro tende a ~100%; religa → erro cai
 
 > Ops `POST/DELETE` na **8081** (`InstanceManagerServer`) sobe/derruba instâncias como no TP1.
 > Durante o JMeter: `DELETE {"id":"br-1"}` — o heartbeat para e o gateway tira a réplica do LB.
@@ -280,7 +284,7 @@ Se você souber responder isto, está ok para a disciplina:
 
 1. **Por que dois módulos?** Um é a plataforma (JAR), outro é a app — exigência do PDF.  
 2. **JMeter chama quem?** `GatewayApp` do TP2, porta 8080.  
-3. **Onde está a regra de negócio?** `time-app` (`GatewayTimeService`, `ZoneTimeService`, `TimeService`).  
+3. **Onde está a regra de negócio?** `time-app` (`GatewayTimeService`, `ZoneTimeService`).  
 4. **Onde está a “mágica” de rede?** `middleware-core`.  
 5. **O `api-gateway` entra na demo?** Não. É só o ancestral do TP1.  
 6. **O que é Invoker?** Quem acha o método anotado e chama com reflexão.  

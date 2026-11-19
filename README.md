@@ -37,12 +37,14 @@ Classpath típico (Windows):
 $cp = "time-app\target\classes;middleware-core\target\classes;$env:USERPROFILE\.m2\repository\org\json\json\20250517\json-20250517.jar"
 ```
 
-## Rodar (mínimo — só gateway com fallback local)
+## Rodar (gateway sozinho)
+
+O `GatewayApp` sobe HTTP/TCP/heartbeat, mas **`/time/*` exige pelo menos uma `InstanceApp` saudável**. Sem réplicas, a resposta é erro (HTTP 400) — necessário para a demo de kill total no JMeter.
 
 ```powershell
 java -cp $cp br.imd.ufrn.app.GatewayApp
-curl http://127.0.0.1:8080/time/br
-# TCP: envie a linha "TIME br" na porta 9091
+# GET /time/br sem instâncias → erro
+# TCP: envie a linha "TIME br" na porta 9091 (mesmo comportamento)
 ```
 
 ## Rodar (arquitetura TP1 completa)

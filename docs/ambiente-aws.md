@@ -222,17 +222,24 @@ jmeter -n -t jmeter\carga-tcp.jmx "-JgatewayHost=<IP_PUBLICO>" "-Jusers=8" "-Jra
 
 ---
 
-## Erros “sem sentido” no JMeter (mesmo do TP1)
+## JMeter no PC → EC2 (cenário da banca)
 
-Sintoma: por volta de **20–30s** o TPS de sucesso cai, failure sobe em BR e PT juntos; no Sumário Máx. ≈ **2000–2015 ms** e Error% ~10%.
+O `stress-local` na VM com **0% erro** prova que a app está ok. O buraco de TPS aos ~20–30s no JMeter **remoto** vinha de:
 
-Causa principal no código (não era só tamanho da VM):
+1. Cada request abrindo TCP novo no link Brasil↔AWS (RTT alto) porque o servidor só falava `Connection: close`.
+2. Keep-alive no JMeter sem keep-alive de verdade no servidor → conexões mortas / timeouts longos (Máx. dezenas de segundos).
 
-1. **`HttpURLConnection` no forward** — keep-alive/pool sob carga deixava conexões “zumbis” e estourava read timeout de 2s. Corrigido: forward com **Socket + Connection: close** (igual `HttpForwarder` do TP1) e read timeout **5s**; 1 retry em outra réplica.
-2. **`System.out` por request** — interceptor em gateway+instâncias serializava threads. Gateway só amostra; instâncias sem log por padrão.
-3. Heartbeat timeout folgado (**20s**).
+**Correção:** `HttpProtocolPlugin` com **HTTP/1.1 keep-alive** (várias requests na mesma conexão). Planos JMeter: KeepAlive **on** + HttpClient4.
 
-Depois de `git pull` + `mvn clean install` + restart, o Sumário saudável deve ficar perto de **0%** erro com `users=8`.
+Depois de atualizar na EC2:
+
+```bash
+cd ~/middleware && git pull && mvn clean install
+bash scripts/stop-all.sh && bash scripts/start-all.sh
+```
+
+No PC: reabrir `jmeter/carga-http.jmx`, `gatewayHost=<IP_PUBLICO>`, `users=8`, Start.  
+Esperado: Error% ≈ 0 e TPS estável (sem “vale” aos 30s).
 
 ## Checklist rápido
 

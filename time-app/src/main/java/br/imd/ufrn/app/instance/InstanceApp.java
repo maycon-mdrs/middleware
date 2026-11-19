@@ -36,7 +36,11 @@ public final class InstanceApp {
 
         Middleware mw = new Middleware();
         mw.register(service);
-        mw.interceptor(new LoggingInterceptor());
+        // Sem log por request na instância: sob JMeter o System.out sincronizado
+        // engolia threads (mesmo sintoma do TP1 ~20–30s). Gateway já amostra logs.
+        if (Boolean.parseBoolean(System.getProperty("mw.instance.log", "false"))) {
+            mw.interceptor(new LoggingInterceptor());
+        }
         mw.protocol(new HttpProtocolPlugin(port));
         mw.start();
 

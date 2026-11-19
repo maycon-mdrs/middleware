@@ -224,15 +224,15 @@ jmeter -n -t jmeter\carga-tcp.jmx "-JgatewayHost=<IP_PUBLICO>" "-Jusers=8" "-Jra
 
 ## Erros “sem sentido” no JMeter (mesmo do TP1)
 
-Sintoma: Error % sobe no meio do teste e depois some, **sem** você matar instância. No TPS: success cai ~20–30s e failure aparece em BR e PT juntos.
+Sintoma: por volta de **20–30s** o TPS de sucesso cai, failure sobe em BR e PT juntos; no Sumário Máx. ≈ **2000–2015 ms** e Error% ~10%.
 
-Causas típicas no `t3.micro`:
+Causa principal no código (não era só tamanho da VM):
 
-1. **Heartbeat apertado** — intervalo 3s + timeout antigo 6s: sob CPU alta o cleaner marca réplica morta. Agora o timeout do gateway é **20s**.
-2. **Log por request** — o interceptor não loga mais tudo (só erros + amostragem). Log completo: `-Dmw.log.all=true`.
-3. **Créditos CPU do t3.micro** — depois de carga alta a VM “engasga”. Demo: `users=8`, `duration=60`.
+1. **`HttpURLConnection` no forward** — keep-alive/pool sob carga deixava conexões “zumbis” e estourava read timeout de 2s. Corrigido: forward com **Socket + Connection: close** (igual `HttpForwarder` do TP1) e read timeout **5s**; 1 retry em outra réplica.
+2. **`System.out` por request** — interceptor em gateway+instâncias serializava threads. Gateway só amostra; instâncias sem log por padrão.
+3. Heartbeat timeout folgado (**20s**).
 
-Na VM, se ver `[TIMEOUT] removendo` no `gateway.log` durante carga saudável, a máquina está saturada ou o deploy ainda está com o timeout antigo.
+Depois de `git pull` + `mvn clean install` + restart, o Sumário saudável deve ficar perto de **0%** erro com `users=8`.
 
 ## Checklist rápido
 

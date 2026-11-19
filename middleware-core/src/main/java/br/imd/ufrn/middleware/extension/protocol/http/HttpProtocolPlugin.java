@@ -40,10 +40,12 @@ public class HttpProtocolPlugin implements ProtocolPlugin {
 
     @Override
     public void start(ServerRequestHandler handler) throws Exception {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+        // backlog maior: sob JMeter o accept não pode enfileirar pouco
+        try (ServerSocket serverSocket = new ServerSocket(port, 512)) {
             System.out.println("[HTTP] ouvindo porta " + port);
             while (!Thread.currentThread().isInterrupted()) {
                 Socket socket = serverSocket.accept();
+                socket.setTcpNoDelay(true);
                 pool.execute(() -> handleClient(socket, handler));
             }
         }

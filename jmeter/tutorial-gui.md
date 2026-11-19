@@ -59,6 +59,12 @@ Variáveis ficam no **Test Plan** (raiz), não num nó `vars` separado — igual
 | `ramp` | `5` |
 | `duration` | `60` (demo) |
 
+3. Reabra o `.jmx` atualizado do Git: KeepAlive **off** + Implementation **Java**  
+   (KeepAlive ligado com servidor `Connection: close` gera o buraco de erro aos ~20–30s).
+
+4. Se um sample ficar vermelho: abra **Árvore HTTP** e anote a mensagem  
+   (`Connection reset` / `Non HTTP` → cliente/KeepAlive; `Falha ao encaminhar` → forward; `Nenhuma instância` → heartbeat).
+
 ---
 
 ## 3. Rodar saudável

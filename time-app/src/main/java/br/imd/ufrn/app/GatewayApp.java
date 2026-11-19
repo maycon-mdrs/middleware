@@ -44,7 +44,10 @@ public final class GatewayApp {
 
         Middleware mw = new Middleware();
         mw.register(new GatewayTimeService(registry, mw.lookup()));
-        mw.interceptor(new LoggingInterceptor());
+        // Log amostrado só se pedir: -Dmw.gateway.log=true (evita contenção no System.out sob JMeter)
+        if (Boolean.parseBoolean(System.getProperty("mw.gateway.log", "false"))) {
+            mw.interceptor(new LoggingInterceptor());
+        }
         mw.protocol(new HttpProtocolPlugin(httpPort));
         mw.protocol(new TcpProtocolPlugin(tcpPort));
         mw.start();
